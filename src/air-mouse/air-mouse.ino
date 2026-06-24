@@ -4,7 +4,7 @@
 //
 // Wiring: MPU6050 SDA=9, SCL=8.
 
-#include <Mpu6050.h>
+#include "../../lib/Mpu6050/Mpu6050.h"
 #include "USBHIDMouse.h"
 
 Mpu6050 imu(9, 8);
@@ -20,14 +20,14 @@ USBHIDMouse Mouse;
 // ---- Laser-Pointer Tuning --------------------------------------------------
 
 // Sensitivity for each axis (adjust to speed up / slow down cursor movement)
-const float SENSITIVITY_X = 0.8f;
-const float SENSITIVITY_Y = 0.76f;
+const float SENSITIVITY_X = 0.80f;
+const float SENSITIVITY_Y = 1.6f;
 
 // Smoothing factor (EMA). 0.1 = heavy filtering (smooth but laggy), 1.0 = no filtering.
-const float SMOOTHING = 0.2f;
+const float SMOOTHING = 0.6f;
 
 // Noise/tremor threshold in degrees/sec. Angular speeds below this are ignored.
-const float GYRO_DEADZONE = 3.0f;
+const float GYRO_DEADZONE = 2.0f;
 
 // Update rate in milliseconds (10 ms = 100 Hz filter tick)
 const uint32_t UPDATE_MS = 10;
@@ -71,9 +71,10 @@ void loop() {
   if (abs(rawYaw) < GYRO_DEADZONE) rawYaw = 0.0f;
   if (abs(rawPitch) < GYRO_DEADZONE) rawPitch = 0.0f;
 
-  // Apply exponential moving average (EMA) to smooth out raw movements
+  // Adaptive (speed-based) smoothing: alpha = min(SMOOTHING_MIN + SMOOTHING_SLOPE * combinedSpeed, SMOOTHING_MAX)
   static float smoothYaw = 0.0f;
   static float smoothPitch = 0.0f;
+
   smoothYaw = SMOOTHING * rawYaw + (1.0f - SMOOTHING) * smoothYaw;
   smoothPitch = SMOOTHING * rawPitch + (1.0f - SMOOTHING) * smoothPitch;
 
@@ -82,7 +83,7 @@ void loop() {
   // - Pitch up -> cursor up. Pitch down -> cursor down.
   // Standard mouse coordinates: dx positive is right, dy positive is down.
   float targetDx = -smoothYaw * SENSITIVITY_X;
-  float targetDy = smoothPitch * SENSITIVITY_Y;
+  float targetDy =  smoothPitch * SENSITIVITY_Y;
 
   // Sub-pixel accumulator to prevent "stickiness" during very slow pointing
   static float subPx = 0.0f;
@@ -111,7 +112,7 @@ void loop() {
   bool isMoving = (dx != 0 || dy != 0);
   if (isMoving != wasMoving) {
     if (isMoving) {
-      neopixelWrite(STATUS_LED_PIN, 0, 20, 20); // Cyan for movement
+      neopixelWrite(STATUS_LED_PIN, 0, 30, 30); // Cyan for movement
     } else {
       neopixelWrite(STATUS_LED_PIN, 0, 30, 0);  // Green for stationary
     }

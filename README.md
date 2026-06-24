@@ -1,6 +1,6 @@
 # air-mouse
 
-A gyro-based air-mouse for ESP32-S2/S3 (and any Arduino core with native USB HID support — RP2040, Teensy). Tilt the IMU to move the cursor; the device appears as a USB mouse.
+A gyro-based air-mouse for ESP32-S2/S3 (and any Arduino core with native USB HID support — RP2040, Teensy). Tilt the IMU to move the cursor; the device appears as a USB mouse or a wireless Bluetooth Low Energy (BLE) mouse.
 
 ## Layout
 
@@ -11,8 +11,10 @@ air-mouse/
 │       ├── Mpu6050.h
 │       └── keywords.txt
 ├── src/
-│   └── air-mouse/        # Main Arduino sketch (the "main" of this project)
-│       └── air-mouse.ino
+│   ├── air-mouse/        # USB HID variant (wired)
+│   │   └── air-mouse.ino
+│   └── air-mouse-bt/     # BLE HID variant (wireless Bluetooth)
+│       └── air-mouse-bt.ino
 └── examples/             # Standalone test / calibration sketches
     ├── imu-raw/
     ├── imu-acc-calib/
@@ -20,7 +22,7 @@ air-mouse/
     └── imu-calib/
 ```
 
-## Running the main sketch
+## Running the USB sketch (wired)
 
 Open `src/air-mouse/air-mouse.ino` in the Arduino IDE. The library folder is auto-detected, so no manual install is needed. Select your board (e.g. ESP32-S3) and upload.
 
@@ -86,3 +88,31 @@ imu.setGyroOffsets(gx, gy, gz);
 ```
 
 Scales are fixed: accel ±2 g (16384 LSB/g), gyro ±250 dps (131 LSB/dps).
+
+## Running the BLE sketch (wireless Bluetooth)
+
+Open `src/air-mouse-bt/air-mouse-bt.ino` in the Arduino IDE.
+
+### Required libraries
+
+Install these via **Sketch → Include Library → Manage Libraries…**:
+
+| Library | Version | Notes |
+|---------|---------|-------|
+| NimBLE-Arduino | ≥ 2.3.8 | BLE stack (dependency of HijelHID) |
+| HijelHID | latest | Search "HijelHID" in Library Manager |
+
+### Upload & Pair
+
+1. Select your ESP32-S3 board and upload the sketch.
+2. The on-board LED cycles through:
+   - 🔵 **Blue** — hardware init
+   - 🟠 **Orange** — IMU calibration (keep still!)
+   - 🟣 **Purple blink** — BLE advertising, waiting for pairing
+3. On your PC / phone, open Bluetooth settings and pair with **"Air Mouse"**.
+4. LED turns 🟢 **Green** — paired and ready.
+5. Tilt the device to move the cursor. LED goes 🩵 **Cyan** during active movement.
+
+### Tuning
+
+The same tuning constants from the USB version apply — see the table above. Both sketches share identical motion logic.
