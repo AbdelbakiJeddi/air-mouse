@@ -1,88 +1,78 @@
-# air-mouse
+# ESP32-S3 BLE Air Mouse
 
-A gyro-based air-mouse for ESP32-S2/S3 (and any Arduino core with native USB HID support — RP2040, Teensy). Tilt the IMU to move the cursor; the device appears as a USB mouse.
+A wireless air mouse built with an ESP32-S3, an MPU6050 motion sensor, and
+Bluetooth Low Energy HID. Tilt or rotate the board to move the cursor. Two
+buttons provide left and right mouse clicks.
 
-## Layout
+## Hardware
 
-```
-air-mouse/
-├── lib/
-│   └── Mpu6050/          # Reusable header-only MPU6050 driver
-│       ├── Mpu6050.h
-│       └── keywords.txt
-├── src/
-│   └── air-mouse/        # Main Arduino sketch (the "main" of this project)
-│       └── air-mouse.ino
-└── examples/             # Standalone test / calibration sketches
-    ├── imu-raw/
-    ├── imu-acc-calib/
-    ├── imu-gyr-calib/
-    └── imu-calib/
-```
+- ESP32-S3 Zero
+- MPU6050 IMU
+- Two momentary push buttons
 
-## Running the main sketch
+### Wiring
 
-Open `src/air-mouse/air-mouse.ino` in the Arduino IDE. The library folder is auto-detected, so no manual install is needed. Select your board (e.g. ESP32-S3) and upload.
+| Component | ESP32-S3 Zero |
+| --- | --- |
+| MPU6050 VCC | 3V3 |
+| MPU6050 GND | GND |
+| MPU6050 SDA | GPIO 8 |
+| MPU6050 SCL | GPIO 9 |
+| Left button | GPIO 4 to GND |
+| Right button | GPIO 5 to GND |
 
-The sketch:
-- Wakes the MPU6050 and runs an accel + gyro bias calibration (keep the board still — the on-board LED turns orange).
-- Streams the live accel / gyro values to Serial.
-- Maps yaw → cursor X, pitch → cursor Y, with a deadzone, EMA smoothing, and a sub-pixel accumulator.
-- Drives the cursor via USB HID.
+The buttons use the ESP32 internal pull-up resistors.
 
-### Tuning
+## Required libraries
 
-In `src/air-mouse/air-mouse.ino`:
+Install these libraries through the Arduino Library Manager:
 
-| Constant       | Meaning                                                |
-| -------------- | ------------------------------------------------------ |
-| `SENSITIVITY_X` / `SENSITIVITY_Y` | Cursor speed per axis. Higher = faster.  |
-| `SMOOTHING`    | EMA factor. Lower = smoother but laggier.              |
-| `GYRO_DEADZONE`| Ignore angular speeds below this many deg/s.           |
-| `UPDATE_MS`    | Filter tick period. `10` = 100 Hz.                     |
+- Adafruit MPU6050
+- Adafruit Unified Sensor
+- ESP32 BLE Mouse by T-vK
 
-## Wiring
+Select an ESP32-S3 board with Bluetooth Low Energy support before uploading.
 
-| MPU6050 | Board        |
-| ------- | ------------ |
-| VCC     | 3V3          |
-| GND     | GND          |
-| SDA     | GPIO 9       |
-| SCL     | GPIO 8       |
+## Upload and pair
 
-## Examples
+1. Open `air-mouse.ino` in the Arduino IDE.
+2. Select the ESP32-S3 Zero board and its USB port.
+3. Upload the sketch.
+4. Open the computer Bluetooth settings.
+5. Pair with `ESP32-S3 Air Mouse`.
+6. Move the board after the cursor becomes active.
 
-Each example lives in its own folder and can be opened standalone.
+The device advertises as a Bluetooth mouse and does not move the cursor until
+it is connected.
 
-| Sketch                  | What it does                                                        |
-| ----------------------- | ------------------------------------------------------------------- |
-| `examples/imu-raw`      | Streams accel/gyro at 5 Hz. No calibration. Quick sanity check.     |
-| `examples/imu-acc-calib`| Computes and prints the accelerometer bias only.                     |
-| `examples/imu-gyr-calib`| Computes and prints the gyroscope bias only.                        |
-| `examples/imu-calib`    | Full accel + gyro calibration, then streams calibrated readings.    |
+## RGB LED states
 
-## Mpu6050 library API
+The built-in RGB LED shows the current device state:
 
-```cpp
-#include <Mpu6050.h>
+| Color | State |
+| --- | --- |
+| Blue | Starting up |
+| Orange | MPU6050 setup |
+| Red | MPU6050 initialization failed |
+| Purple | Waiting for Bluetooth connection |
+| Green | Connected and stationary |
+| Cyan | Cursor movement detected |
 
-Mpu6050 imu(9, 8);          // SDA, SCL
-imu.begin();                // wake, configure, set DLPF
-imu.calibrate();            // accel + gyro bias (keep still)
-imu.calibrateAccel();       // accel only
-imu.calibrateGyro();        // gyro only
-imu.read();                 // burst-read, offsets applied
+## Buttons
 
-float ax_g  = imu.accelX(); // g
-float ay_g  = imu.accelY();
-float az_g  = imu.accelZ();
-float gx_dps = imu.gyroX(); // deg/s
-float gy_dps = imu.gyroY();
-float gz_dps = imu.gyroZ();
+- GPIO 4: left click
+- GPIO 5: right click
 
-// Programmatic offsets (e.g. loaded from EEPROM)
-imu.setAccelOffsets(ax, ay, az);
-imu.setGyroOffsets(gx, gy, gz);
-```
+Pressing a button connects it to GND and sends the corresponding Bluetooth
+mouse button event.
 
-Scales are fixed: accel ±2 g (16384 LSB/g), gyro ±250 dps (131 LSB/dps).
+## Tuning
+
+Adjust these values near the top of `air-mouse.ino`:
+
+- `sensitivity`: cursor speed
+- `deadzone`: minimum movement threshold
+- `alpha`: complementary filter weight
+- `SDA_PIN` and `SCL_PIN`: I2C pins
+
+The current loop runs at approximately 125 Hz.
